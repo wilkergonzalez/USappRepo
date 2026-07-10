@@ -1,4 +1,6 @@
 import { createClient, type SupabaseClient, type Session } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 const ENV_KEYS = {
   url: ['EXPO_PUBLIC_SUPABASE_URL', 'SUPABASE_URL'],
@@ -32,9 +34,11 @@ export function getSupabaseClient() {
   if (!cachedClient && supabaseUrl && supabaseAnonKey) {
     cachedClient = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
+        storage: AsyncStorage,
         autoRefreshToken: true,
-        detectSessionInUrl: false,
+        detectSessionInUrl: Platform.OS === 'web',
         persistSession: true,
+        flowType: 'pkce',
       },
     });
   }
@@ -54,4 +58,17 @@ export async function getCurrentSession(): Promise<Session | null> {
   }
 
   return data.session;
+}
+
+export function subscribeToAuthChanges(callback: (session: Session | null) => void) {
+  const client = getSupabaseClient();
+  if (!client) {
+    return () => undefined;
+  }
+
+  const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
+    callback(session);
+  });
+
+  return () => subscription.unsubscribe();
 }

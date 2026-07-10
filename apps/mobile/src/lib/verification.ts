@@ -388,8 +388,6 @@ async function blobChecksum(blob: Blob) {
 
 export async function uploadVerificationDocument(input: DocumentUploadInput) {
   const client = getSupabaseClient();
-  const normalizedFileName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, '-');
-  const storagePath = `${input.userId}/${Date.now()}-${normalizedFileName}`;
 
   if (!client) {
     const checksum = await Crypto.digestStringAsync(
@@ -405,17 +403,40 @@ export async function uploadVerificationDocument(input: DocumentUploadInput) {
     };
   }
 
+  const { data: userResult, error: userError } = await client.auth.getUser();
+  if (userError) {
+    throw userError;
+  }
+  const user = userResult.user;
+  if (!user) {
+    throw new Error('Authentication required.');
+  }
+  if (input.userId !== user.id) {
+    throw new Error('The upload user does not match the active session.');
+  }
+
   const response = await fetch(input.fileUri);
   if (!response.ok) {
     throw new Error(`Unable to read selected file: ${response.status}`);
   }
 
   const blob = await response.blob();
+  const mimeType = input.mimeType ?? blob.type ?? 'application/octet-stream';
+  const allowedMimeType = mimeType === 'application/pdf' || mimeType.startsWith('image/');
+  if (!allowedMimeType) {
+    throw new Error('Verification documents must be a PDF or image.');
+  }
+  if (blob.size <= 0 || blob.size > 10 * 1024 * 1024) {
+    throw new Error('Verification documents must be between 1 byte and 10 MB.');
+  }
+
+  const normalizedFileName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, '-');
+  const storagePath = `${user.id}/${Date.now()}-${normalizedFileName}`;
   const checksum = await blobChecksum(blob);
   const { error: uploadError } = await client.storage
     .from('verification-documents')
     .upload(storagePath, blob, {
-      contentType: input.mimeType ?? 'application/octet-stream',
+      contentType: mimeType,
       upsert: false,
     });
 
@@ -429,12 +450,13 @@ export async function uploadVerificationDocument(input: DocumentUploadInput) {
     p_document_checksum: checksum,
     p_metadata: {
       file_name: input.fileName,
-      mime_type: input.mimeType ?? 'application/octet-stream',
+      mime_type: mimeType,
       file_size: blob.size,
     },
   });
 
   if (error) {
+    await client.storage.from('verification-documents').remove([storagePath]);
     throw error;
   }
 

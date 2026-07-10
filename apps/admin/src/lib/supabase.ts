@@ -67,6 +67,25 @@ export function getAdminServerClient() {
   return serverClient;
 }
 
+export function getAdminUserClient(accessToken: string) {
+  if (!hasAdminSupabaseConfig() || !supabaseUrl || !supabaseAnonKey) {
+    return null;
+  }
+
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      persistSession: false,
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  });
+}
+
 export async function getAuthenticatedUserFromRequest(request: Request) {
   const browserClient = getAdminBrowserClient();
   if (!browserClient) {

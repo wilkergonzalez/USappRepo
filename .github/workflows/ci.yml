@@ -25,5 +25,14 @@ jobs:
       - name: Build admin dashboard
         run: npm run admin:build
 
+      - name: Lint admin dashboard
+        run: npm run admin:lint
+
+      - name: Install mobile workspace dependencies
+        run: npm --prefix apps/mobile ci
+
       - name: Typecheck mobile app
-        run: npm --prefix apps/mobile exec tsc -- --noEmit
+        run: npm run mobile:typecheck
+
+      - name: Run deterministic hardening tests
+        run: npm test

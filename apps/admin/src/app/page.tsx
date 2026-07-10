@@ -25,22 +25,6 @@ export default function Home() {
   const [reasonDrafts, setReasonDrafts] = useState<Record<string, string>>({});
   const browserClient = useMemo(() => getAdminBrowserClient(), []);
 
-  useEffect(() => {
-    void bootstrap();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function bootstrap() {
-    if (browserClient) {
-      const { data } = await browserClient.auth.getSession();
-      setSignedInEmail(data.session?.user.email ?? null);
-      await refreshDashboard(data.session?.access_token ?? null);
-      return;
-    }
-
-    await refreshDashboard(null);
-  }
-
   async function refreshDashboard(accessToken: string | null) {
     setState((current) => ({ ...current, loading: true, message: 'Refreshing queue…' }));
 
@@ -119,6 +103,24 @@ export default function Home() {
     setReasonDrafts((current) => ({ ...current, [item.submissionId]: '' }));
     await refreshDashboard(accessToken);
   }
+
+  async function bootstrap() {
+    if (browserClient) {
+      const { data } = await browserClient.auth.getSession();
+      setSignedInEmail(data.session?.user.email ?? null);
+      await refreshDashboard(data.session?.access_token ?? null);
+      return;
+    }
+
+    await refreshDashboard(null);
+  }
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void bootstrap();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const data = state.data;
   const canRenderQueue = Boolean(data && (data.mode === 'demo' || data.isAdmin));
