@@ -1,0 +1,15 @@
+{
+  "name": "usapp-prototype",
+  "private": true,
+  "workspaces": [
+    "apps/mobile",
+    "apps/admin"
+  ],
+  "scripts": {
+    "mobile": "npm --prefix apps/mobile start",
+    "mobile:web": "npm --prefix apps/mobile run web",
+    "admin": "npm --prefix apps/admin run dev",
+    "admin:build": "npm --prefix apps/admin run build",
+    "admin:start": "npm --prefix apps/admin run start"
+  }
+}
