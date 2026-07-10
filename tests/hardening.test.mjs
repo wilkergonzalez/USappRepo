@@ -49,6 +49,7 @@ test('hardening migration removes profile self-insert and storage updates', asyn
   const migration = await text('supabase/migrations/20260710_003_hardening.sql');
   assert.match(migration, /drop policy if exists profiles_insert_own on public\.profiles/i);
   assert.match(migration, /drop policy if exists verification_documents_update_own/i);
+  assert.match(migration, /verification_documents_delete_unsubmitted/);
   assert.match(migration, /verification_one_pending_per_user_idx/);
   assert.match(migration, /invalid_storage_path/);
   assert.match(migration, /submission_fields_immutable/);

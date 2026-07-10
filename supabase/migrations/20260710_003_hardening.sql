@@ -123,6 +123,22 @@ with check (
   and name not like '%..%'
 );
 
+-- The client may clean up an upload only if submission creation failed before
+-- the object was recorded. Once recorded, users cannot delete the document.
+drop policy if exists verification_documents_delete_unsubmitted on storage.objects;
+create policy verification_documents_delete_unsubmitted
+on storage.objects for delete to authenticated
+using (
+  bucket_id = 'verification-documents'
+  and split_part(name, '/', 1) = auth.uid()::text
+  and not exists (
+    select 1
+    from public.verification_submissions submission
+    where submission.user_id = auth.uid()
+      and name = any(submission.storage_paths)
+  )
+);
+
 -- The bucket remains private. Admins use server-generated signed URLs.
 
 -- Security-definer functions must not be callable by anonymous clients or the
