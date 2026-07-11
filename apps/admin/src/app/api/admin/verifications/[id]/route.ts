@@ -10,6 +10,16 @@ function getSubmissionId(request: Request) {
   return parts[parts.length - 1] ?? null;
 }
 
+function getBearerToken(request: Request) {
+  const value = request.headers.get('authorization');
+  if (!value?.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const token = value.slice('Bearer '.length).trim();
+  return token || null;
+}
+
 export async function POST(request: Request) {
   const submissionId = getSubmissionId(request);
   if (!submissionId) {
@@ -21,7 +31,8 @@ export async function POST(request: Request) {
   }
 
   const user = await getAuthenticatedUserFromRequest(request);
-  if (!user) {
+  const accessToken = getBearerToken(request);
+  if (!user || !accessToken) {
     return NextResponse.json({ message: 'Authentication required.' }, { status: 401 });
   }
 
@@ -53,6 +64,7 @@ export async function POST(request: Request) {
     submissionId,
     action: action as 'approve' | 'reject' | 'request_resubmission',
     reason,
+    accessToken,
   });
 
   return NextResponse.json(result);

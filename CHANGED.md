@@ -4,14 +4,18 @@ This file is the human-readable change ledger for the project.
 Agents should update it whenever they make or verify a meaningful change.
 
 ## Latest status
-- [x] Planner agent wrote the next implementation spec to `.pipeline/spec.md`
-- [x] Supabase project URL and keys stored locally in ignored `.env.local` files
-- [x] Secrets were kept out of tracked files
-- [x] Coder agent finished the Supabase-backed implementation
-- [x] Tester agent ran verification against the new implementation
-- [x] Reviewer agent completed the final review
-- [x] GitHub Actions CI workflow added at `.github/workflows/ci.yml`
-- [ ] GitHub remote / repository pipeline finalized
+- [x] Planner, security architect, QA architect, coder, and release reviewer completed the hardening review
+- [x] Feature work isolated on `feat/prototype-auth-ci-hardening`
+- [x] Mobile typecheck now runs through a real package script with TypeScript 5.9.3
+- [x] Admin lint is included and passes locally
+- [x] Deterministic hardening contract tests added and passing (7 tests)
+- [x] Mobile Supabase auth uses explicit persistent storage and auth-state refresh wiring
+- [x] Admin review RPC now uses the authenticated caller context instead of a service-role RPC session
+- [x] Supabase hardening migration added for profile, submission, storage, and function-execution boundaries
+- [x] Admin production build passes locally
+- [ ] Apply and exercise the new migration against the connected Supabase project
+- [ ] Run live RLS/storage/auth integration tests with separate user and admin accounts
+- [ ] Final reviewer approval and merge decision
 
 ## Files intentionally not tracked
 - `apps/mobile/.env.local`

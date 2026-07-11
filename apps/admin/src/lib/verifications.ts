@@ -1,6 +1,10 @@
 import type { User } from '@supabase/supabase-js';
 
-import { getAdminServerClient, hasAdminSupabaseConfig } from './supabase';
+import {
+  getAdminServerClient,
+  getAdminUserClient,
+  hasAdminSupabaseConfig,
+} from './supabase';
 
 export type VerificationQueueItem = {
   submissionId: string;
@@ -38,6 +42,42 @@ export type AdminQueueResponse = {
     votes: string;
   }>;
   audit: string[];
+};
+
+type SubmissionProfileRow = {
+  id: string;
+  full_name: string | null;
+  email: string;
+  city: string | null;
+  zip_code: string | null;
+  verification_status: string;
+  role: 'user' | 'admin';
+};
+
+type SubmissionRow = {
+  id: string;
+  user_id: string;
+  status: 'pending' | 'approved' | 'rejected';
+  document_type: string;
+  storage_paths: string[] | null;
+  submitted_at: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  decision_reason: string | null;
+  profiles: SubmissionProfileRow | SubmissionProfileRow[] | null;
+};
+
+type BillRow = {
+  id: string;
+  title: string;
+  state_scope: string | null;
+  approve_count: number | null;
+  disapprove_count: number | null;
+};
+
+type AuditRow = {
+  action: string;
+  created_at: string;
 };
 
 const DEMO_QUEUE: VerificationQueueItem[] = [
@@ -174,7 +214,7 @@ export async function loadAdminQueue(currentUserId?: string): Promise<AdminQueue
   }
 
   const queue = await Promise.all(
-    (submissionsResult.data ?? []).map(async (row: any) => {
+    (submissionsResult.data ?? []).map(async (row: SubmissionRow) => {
       const documentPath = row.storage_paths?.[0] ?? null;
       const signedDocumentUrl = documentPath
         ? (await serverClient.storage.from('verification-documents').createSignedUrl(documentPath, 60 * 10)).data?.signedUrl ?? null
@@ -213,13 +253,13 @@ export async function loadAdminQueue(currentUserId?: string): Promise<AdminQueue
       actionsToday: actionsResult.count ?? 0,
     },
     queue,
-    bills: (billsResult.data ?? []).map((bill: any) => ({
+    bills: (billsResult.data ?? []).map((bill: BillRow) => ({
       id: bill.id,
       title: bill.title,
       scope: bill.state_scope ?? 'UT',
       votes: `${bill.approve_count ?? 0} approve / ${bill.disapprove_count ?? 0} disapprove`,
     })),
-    audit: (auditResult.data ?? []).map((row: any) => `${row.action} · ${new Date(row.created_at).toLocaleString()}`),
+    audit: (auditResult.data ?? []).map((row: AuditRow) => `${row.action} · ${new Date(row.created_at).toLocaleString()}`),
   };
 }
 
@@ -250,13 +290,15 @@ export async function performReviewAction(input: {
   submissionId: string;
   action: 'approve' | 'reject' | 'request_resubmission';
   reason?: string;
+  accessToken: string;
 }) {
+  const userClient = getAdminUserClient(input.accessToken);
   const serverClient = getAdminServerClient();
-  if (!serverClient) {
+  if (!userClient || !serverClient) {
     return { message: 'Demo mode does not persist admin decisions.' };
   }
 
-  const { data, error } = await serverClient.rpc('review_verification_submission', {
+  const { data, error } = await userClient.rpc('review_verification_submission', {
     p_submission_id: input.submissionId,
     p_action: input.action,
     p_reason: input.reason ?? null,
@@ -267,9 +309,13 @@ export async function performReviewAction(input: {
   }
 
   if (data?.storage_paths?.length) {
-    await Promise.all(
+    const results = await Promise.all(
       data.storage_paths.map((path: string) => serverClient.storage.from('verification-documents').remove([path])),
     );
+    const deletionError = results.find((result) => result.error)?.error;
+    if (deletionError) {
+      throw deletionError;
+    }
   }
 
   return { message: `Submission ${actionLabel(input.action)}.` };

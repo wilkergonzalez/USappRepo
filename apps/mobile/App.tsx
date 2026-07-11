@@ -23,6 +23,7 @@ import {
   signUpWithEmail,
   uploadVerificationDocument,
 } from './src/lib/verification';
+import { subscribeToAuthChanges } from './src/lib/supabase';
 import type { BillRecord, BillVote, VerificationStatus, WorkspaceSnapshot } from './src/types';
 
 const INTERESTS = [
@@ -61,6 +62,12 @@ export default function App() {
 
   useEffect(() => {
     void refreshWorkspace();
+  }, []);
+
+  useEffect(() => {
+    return subscribeToAuthChanges(() => {
+      void refreshWorkspace();
+    });
   }, []);
 
   useEffect(() => {
