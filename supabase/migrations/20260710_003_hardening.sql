@@ -20,7 +20,8 @@ begin
     end if;
 
     if new.verification_status is distinct from old.verification_status
-       and not public.is_admin(auth.uid()) then
+       and not public.is_admin(auth.uid())
+       and coalesce(current_setting('app.verification_submission_rpc', true), '') <> 'on' then
       raise exception 'verification_status_change_forbidden';
     end if;
 
@@ -29,7 +30,8 @@ begin
        or new.verified_at is distinct from old.verified_at
        or new.verification_rejection_reason is distinct from old.verification_rejection_reason
        then
-      if not public.is_admin(auth.uid()) then
+      if not public.is_admin(auth.uid())
+         and coalesce(current_setting('app.verification_submission_rpc', true), '') <> 'on' then
         raise exception 'review_fields_change_forbidden';
       end if;
     end if;
@@ -104,6 +106,73 @@ drop trigger if exists verification_submissions_validate on public.verification_
 create trigger verification_submissions_validate
 before insert or update on public.verification_submissions
 for each row execute function public.validate_verification_submission();
+
+-- The submission RPC is the only trusted non-admin path allowed to move a
+-- profile into pending. The marker is local to this transaction and cannot be
+-- supplied through the public RPC arguments.
+create or replace function public.submit_verification_document(
+  p_document_type text,
+  p_storage_paths text[],
+  p_document_checksum text,
+  p_metadata jsonb default '{}'::jsonb
+)
+returns public.verification_submissions
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_submission public.verification_submissions;
+begin
+  if auth.uid() is null then
+    raise exception 'not_authenticated';
+  end if;
+
+  if not exists (select 1 from public.profiles where id = auth.uid()) then
+    raise exception 'profile_missing';
+  end if;
+
+  if exists (
+    select 1
+    from public.verification_submissions
+    where user_id = auth.uid()
+      and status = 'pending'
+  ) then
+    raise exception 'pending_submission_exists';
+  end if;
+
+  perform set_config('app.verification_submission_rpc', 'on', true);
+
+  update public.profiles
+  set verification_status = 'pending',
+      verification_submitted_at = now(),
+      verification_rejection_reason = null,
+      updated_at = now()
+  where id = auth.uid();
+
+  insert into public.verification_submissions (
+    user_id,
+    status,
+    document_type,
+    storage_paths,
+    document_checksum,
+    submitted_at,
+    metadata
+  )
+  values (
+    auth.uid(),
+    'pending',
+    p_document_type,
+    coalesce(p_storage_paths, '{}'::text[]),
+    nullif(p_document_checksum, ''),
+    now(),
+    coalesce(p_metadata, '{}'::jsonb)
+  )
+  returning * into v_submission;
+
+  return v_submission;
+end;
+$$;
 
 -- Submission metadata is written through the security-definer RPC only.
 drop policy if exists verification_submissions_insert_own on public.verification_submissions;
