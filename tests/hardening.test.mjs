@@ -53,8 +53,9 @@ test('hardening migration removes profile self-insert and storage updates', asyn
   assert.match(migration, /verification_one_pending_per_user_idx/);
   assert.match(migration, /invalid_storage_path/);
   assert.match(migration, /submission_fields_immutable/);
-  assert.match(migration, /app\.verification_submission_rpc/);
+  assert.match(migration, /app\.verification_submission_status_rpc/);
   assert.match(migration, /pending_submission_exists/);
+  assert.match(migration, /superseded_duplicate_pending/);
 });
 
 test('security-definer RPC grants are explicit', async () => {

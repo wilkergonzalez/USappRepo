@@ -21,7 +21,7 @@ begin
 
     if new.verification_status is distinct from old.verification_status
        and not public.is_admin(auth.uid())
-       and coalesce(current_setting('app.verification_submission_rpc', true), '') <> 'on' then
+       and coalesce(current_setting('app.verification_submission_status_rpc', true), '') <> 'on' then
       raise exception 'verification_status_change_forbidden';
     end if;
 
@@ -31,7 +31,14 @@ begin
        or new.verification_rejection_reason is distinct from old.verification_rejection_reason
        then
       if not public.is_admin(auth.uid())
-         and coalesce(current_setting('app.verification_submission_rpc', true), '') <> 'on' then
+         and not (
+           coalesce(current_setting('app.verification_submission_status_rpc', true), '') = 'on'
+           and new.verification_status = 'pending'
+           and new.verification_reviewed_by is not distinct from old.verification_reviewed_by
+           and new.verification_reviewed_at is not distinct from old.verification_reviewed_at
+           and new.verified_at is not distinct from old.verified_at
+           and new.verification_rejection_reason is null
+         ) then
         raise exception 'review_fields_change_forbidden';
       end if;
     end if;
@@ -46,8 +53,26 @@ create trigger profiles_protect_security_fields
 before update on public.profiles
 for each row execute function public.protect_profile_security_fields();
 
--- A user may create at most one active pending submission. Reviewed rows remain
--- available for audit, while a rejected user may submit a replacement.
+-- Repair legacy duplicate pending rows before enforcing the invariant. Keep
+-- the newest row and retain older rows for audit as rejected.
+with ranked_pending as (
+  select id,
+         row_number() over (
+           partition by user_id
+           order by submitted_at desc, created_at desc, id desc
+         ) as row_rank
+  from public.verification_submissions
+  where status = 'pending'
+)
+update public.verification_submissions submission
+set status = 'rejected',
+    decision_reason = coalesce(submission.decision_reason, 'superseded_duplicate_pending'),
+    reviewed_at = coalesce(submission.reviewed_at, now()),
+    updated_at = now()
+from ranked_pending
+where submission.id = ranked_pending.id
+  and ranked_pending.row_rank > 1;
+
 create unique index if not exists verification_one_pending_per_user_idx
   on public.verification_submissions (user_id)
   where status = 'pending';
@@ -141,7 +166,7 @@ begin
     raise exception 'pending_submission_exists';
   end if;
 
-  perform set_config('app.verification_submission_rpc', 'on', true);
+  perform set_config('app.verification_submission_status_rpc', 'on', true);
 
   update public.profiles
   set verification_status = 'pending',
