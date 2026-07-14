@@ -17,7 +17,7 @@ test('root verification scripts call package scripts', async () => {
   const packageJson = JSON.parse(await text('package.json'));
   assert.equal(packageJson.scripts['mobile:typecheck'], 'npm --prefix apps/mobile run typecheck');
   assert.equal(packageJson.scripts['admin:lint'], 'npm --prefix apps/admin run lint');
-  assert.equal(packageJson.scripts.test, 'node --test tests/hardening.test.mjs');
+  assert.equal(packageJson.scripts.test, 'node --test tests/hardening.test.mjs tests/local-demo.test.mjs');
 });
 
 test('CI runs the real verification gates', async () => {

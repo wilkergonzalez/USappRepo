@@ -7,12 +7,13 @@
   ],
   "scripts": {
     "mobile": "npm --prefix apps/mobile start",
-    "mobile:web": "npm --prefix apps/mobile run web",
+    "mobile:web": "node scripts/start-mobile-web.mjs",
     "mobile:typecheck": "npm --prefix apps/mobile run typecheck",
-    "admin": "npm --prefix apps/admin run dev",
+    "admin": "node scripts/start-admin.mjs",
     "admin:lint": "npm --prefix apps/admin run lint",
     "admin:build": "npm --prefix apps/admin run build",
     "admin:start": "npm --prefix apps/admin run start",
-    "test": "node --test tests/hardening.test.mjs"
+    "demo": "node scripts/local-demo.mjs",
+    "test": "node --test tests/hardening.test.mjs tests/local-demo.test.mjs"
   }
 }
