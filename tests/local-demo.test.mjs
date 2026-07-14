@@ -166,7 +166,7 @@ test('combined launcher terminates both surfaces on SIGTERM', async () => {
 
   try {
     await Promise.all([
-      waitForOutput(child, /Local:\s+http/),
+      waitForOutput(child, /Admin demo:\s+http/),
       waitForOutput(child, new RegExp(`Waiting on http://localhost:${mobilePort}`)),
     ]);
     child.kill('SIGTERM');
