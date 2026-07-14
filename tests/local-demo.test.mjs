@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
+import net from 'node:net';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +10,7 @@ import {
   buildMobileCommand,
   buildDemoCommands,
   parseDemoArgs,
+  assertPortAvailable,
   spawnManaged,
   terminateManaged,
 } from '../scripts/local-demo-utils.mjs';
@@ -76,6 +78,15 @@ test('demo fallback branches remain present in both surfaces', async () => {
   assert.match(admin, /Demo mode is active|demo/i);
   assert.match(mobile, /SUPABASE|supabase/i);
   assert.match(admin, /SUPABASE|supabase/i);
+});
+
+test('occupied ports are rejected before the demo starts', async () => {
+  const server = net.createServer();
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const { port } = server.address();
+  await assert.rejects(assertPortAvailable(port), /already in use/);
+  await new Promise((resolve) => server.close(resolve));
 });
 
 test('managed child termination closes the child process', async () => {

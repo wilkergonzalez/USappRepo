@@ -1,5 +1,11 @@
 import process from 'node:process';
-import { buildDemoCommands, parseDemoArgs, spawnManaged, terminateManaged } from './local-demo-utils.mjs';
+import {
+  assertPortAvailable,
+  buildDemoCommands,
+  parseDemoArgs,
+  spawnManaged,
+  terminateManaged,
+} from './local-demo-utils.mjs';
 
 let options;
 try {
@@ -10,6 +16,18 @@ try {
 }
 
 if (options) {
+  try {
+    await Promise.all([
+      assertPortAvailable(options.adminPort, options.adminHostname),
+      assertPortAvailable(options.mobilePort),
+    ]);
+  } catch (error) {
+    console.error(`local demo: ${error.message}`);
+    process.exitCode = 2;
+  }
+}
+
+if (options && process.exitCode !== 2) {
   const commands = buildDemoCommands(options);
   const children = new Map();
   let shuttingDown = false;

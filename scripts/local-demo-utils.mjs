@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import net from 'node:net';
 import process from 'node:process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -38,9 +39,17 @@ export function terminateManaged(child, signal = 'SIGTERM') {
 
   if (process.platform === 'win32') {
     const taskkill = spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
-    taskkill.once('close', () => {
-      if (child.exitCode === null && child.signalCode === null) child.kill(signal);
-    });
+    const fallback = () => {
+      if (child.exitCode === null && child.signalCode === null) {
+        try {
+          child.kill(signal);
+        } catch {
+          // The process exited while taskkill was cleaning up its tree.
+        }
+      }
+    };
+    taskkill.once('error', fallback);
+    taskkill.once('close', fallback);
     return;
   }
 
@@ -89,4 +98,16 @@ export function buildDemoCommands(options) {
     admin: packageCommand('admin', 'dev', ['--hostname', options.adminHostname, '--port', String(options.adminPort)]),
     mobile: packageCommand('mobile', 'web', ['--port', String(options.mobilePort)]),
   };
+}
+
+export function assertPortAvailable(port, host = '127.0.0.1') {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.once('error', () => {
+      reject(new Error(`Port ${port} is already in use`));
+    });
+    server.listen({ port, host }, () => {
+      server.close(() => resolve());
+    });
+  });
 }
