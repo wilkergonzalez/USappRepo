@@ -19,7 +19,8 @@ if (options) {
   try {
     await Promise.all([
       assertPortAvailable(options.adminPort, options.adminHostname),
-      assertPortAvailable(options.mobilePort),
+      assertPortAvailable(options.mobilePort, '127.0.0.1'),
+      assertPortAvailable(options.mobilePort, '::1'),
     ]);
   } catch (error) {
     console.error(`local demo: ${error.message}`);

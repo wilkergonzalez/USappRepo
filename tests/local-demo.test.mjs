@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import net from 'node:net';
 import { readFile } from 'node:fs/promises';
@@ -17,6 +18,45 @@ import {
 
 const root = new URL('../', import.meta.url);
 const repoPath = fileURLToPath(root);
+
+async function freePort() {
+  const server = net.createServer();
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const { port } = server.address();
+  await new Promise((resolve) => server.close(resolve));
+  return port;
+}
+
+function waitForOutput(child, pattern, timeoutMs = 30000) {
+  return new Promise((resolve, reject) => {
+    let output = '';
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error(`Timed out waiting for ${pattern}`));
+    }, timeoutMs);
+    const onData = (chunk) => {
+      output += chunk.toString();
+      if (pattern.test(output)) {
+        cleanup();
+        resolve(output);
+      }
+    };
+    const onClose = () => {
+      cleanup();
+      reject(new Error(`Launcher exited before ${pattern}`));
+    };
+    const cleanup = () => {
+      clearTimeout(timer);
+      child.stdout?.off('data', onData);
+      child.stderr?.off('data', onData);
+      child.off('close', onClose);
+    };
+    child.stdout?.on('data', onData);
+    child.stderr?.on('data', onData);
+    child.once('close', onClose);
+  });
+}
 
 async function text(path) {
   return readFile(new URL(path, root), 'utf8');
@@ -87,6 +127,57 @@ test('occupied ports are rejected before the demo starts', async () => {
   const { port } = server.address();
   await assert.rejects(assertPortAvailable(port), /already in use/);
   await new Promise((resolve) => server.close(resolve));
+});
+
+test('combined launcher rejects an occupied port before spawning children', async () => {
+  const server = net.createServer();
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const { port } = server.address();
+  const child = spawn(process.execPath, [
+    'scripts/local-demo.mjs',
+    '--admin-port',
+    String(port),
+    '--mobile-port',
+    String(port + 1),
+  ], { cwd: repoPath, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
+  let output = '';
+  child.stdout.on('data', (chunk) => { output += chunk; });
+  child.stderr.on('data', (chunk) => { output += chunk; });
+  const [code] = await once(child, 'close');
+  await new Promise((resolve) => server.close(resolve));
+  assert.equal(code, 2);
+  assert.match(output, /Port .* is already in use/);
+  assert.doesNotMatch(output, /Admin demo:/);
+});
+
+test('combined launcher terminates both surfaces on SIGTERM', async () => {
+  const adminPort = await freePort();
+  let mobilePort = await freePort();
+  while (mobilePort === adminPort) mobilePort = await freePort();
+
+  const child = spawn(process.execPath, [
+    'scripts/local-demo.mjs',
+    '--admin-port',
+    String(adminPort),
+    '--mobile-port',
+    String(mobilePort),
+  ], { cwd: repoPath, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
+
+  try {
+    await Promise.all([
+      waitForOutput(child, /Local:\s+http/),
+      waitForOutput(child, new RegExp(`Waiting on http://localhost:${mobilePort}`)),
+    ]);
+    child.kill('SIGTERM');
+    const [code, signal] = await once(child, 'close');
+    assert.ok(code !== null || signal !== null);
+    await assertPortAvailable(adminPort);
+    await assertPortAvailable(mobilePort, '127.0.0.1');
+    await assertPortAvailable(mobilePort, '::1');
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+  }
 });
 
 test('managed child termination closes the child process', async () => {

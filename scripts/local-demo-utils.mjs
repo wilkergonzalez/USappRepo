@@ -103,8 +103,12 @@ export function buildDemoCommands(options) {
 export function assertPortAvailable(port, host = '127.0.0.1') {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
-    server.once('error', () => {
-      reject(new Error(`Port ${port} is already in use`));
+    server.once('error', (error) => {
+      if (error.code === 'EADDRNOTAVAIL') {
+        resolve();
+      } else {
+        reject(new Error(`Port ${port} is already in use`));
+      }
     });
     server.listen({ port, host }, () => {
       server.close(() => resolve());
