@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import process from 'node:process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -21,6 +22,33 @@ export function buildAdminCommand(args = []) {
 export function buildMobileCommand(args = []) {
   const forwarded = args.length ? [...args] : ['--port', '8081'];
   return packageCommand('mobile', 'web', forwarded);
+}
+
+export function spawnManaged({ command, args, cwd }) {
+  return spawn(command, args, {
+    cwd,
+    env: process.env,
+    stdio: 'inherit',
+    detached: process.platform !== 'win32',
+  });
+}
+
+export function terminateManaged(child, signal = 'SIGTERM') {
+  if (!child || child.exitCode !== null || child.signalCode !== null) return;
+
+  if (process.platform === 'win32') {
+    const taskkill = spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+    taskkill.once('close', () => {
+      if (child.exitCode === null && child.signalCode === null) child.kill(signal);
+    });
+    return;
+  }
+
+  try {
+    process.kill(-child.pid, signal);
+  } catch {
+    child.kill(signal);
+  }
 }
 
 function parsePort(value, option) {

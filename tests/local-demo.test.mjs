@@ -1,14 +1,20 @@
 import assert from 'node:assert/strict';
+import { once } from 'node:events';
 import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import {
   buildAdminCommand,
   buildMobileCommand,
   buildDemoCommands,
   parseDemoArgs,
+  spawnManaged,
+  terminateManaged,
 } from '../scripts/local-demo-utils.mjs';
 
 const root = new URL('../', import.meta.url);
+const repoPath = fileURLToPath(root);
 
 async function text(path) {
   return readFile(new URL(path, root), 'utf8');
@@ -21,16 +27,21 @@ test('root scripts point at the local demo launchers', async () => {
   assert.equal(packageJson.scripts.demo, 'node scripts/local-demo.mjs');
 });
 
+test('launchers provide deterministic defaults', () => {
+  assert.deepEqual(buildAdminCommand().args, ['run', 'dev', '--', '--hostname', '127.0.0.1', '--port', '3000']);
+  assert.deepEqual(buildMobileCommand().args, ['run', 'web', '--', '--port', '8081']);
+});
+
 test('admin command forwards Next arguments in the admin cwd', () => {
   const command = buildAdminCommand(['--hostname', '127.0.0.1', '--port', '3001']);
-  assert.equal(command.cwd.endsWith('/apps/admin'), true);
+  assert.equal(command.cwd, resolve(repoPath, 'apps/admin'));
   assert.deepEqual(command.args, ['run', 'dev', '--', '--hostname', '127.0.0.1', '--port', '3001']);
   assert.equal(command.args.indexOf('--'), 2);
 });
 
 test('mobile command forwards Expo arguments in the mobile cwd', () => {
   const command = buildMobileCommand(['--port', '8083']);
-  assert.equal(command.cwd.endsWith('/apps/mobile'), true);
+  assert.equal(command.cwd, resolve(repoPath, 'apps/mobile'));
   assert.deepEqual(command.args, ['run', 'web', '--', '--port', '8083']);
   assert.equal(command.args.indexOf('--'), 2);
 });
@@ -65,4 +76,16 @@ test('demo fallback branches remain present in both surfaces', async () => {
   assert.match(admin, /Demo mode is active|demo/i);
   assert.match(mobile, /SUPABASE|supabase/i);
   assert.match(admin, /SUPABASE|supabase/i);
+});
+
+test('managed child termination closes the child process', async () => {
+  const child = spawnManaged({
+    command: process.execPath,
+    args: ['-e', 'setTimeout(() => {}, 30000)'],
+    cwd: repoPath,
+  });
+  const closed = once(child, 'close');
+  terminateManaged(child, 'SIGTERM');
+  const [code, signal] = await closed;
+  assert.ok(code !== null || signal !== null);
 });

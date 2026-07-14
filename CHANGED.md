@@ -5,7 +5,7 @@ This file is the human-readable change ledger for the project.
 ## Current status
 - [x] Supabase auth, verification, storage, RLS, and admin-review hardening is merged to `main`
 - [x] Local demo launchers are implemented on `feat/local-demo-runnable`
-- [x] `npm test` passes 13 deterministic tests
+- [x] `npm test` passes 15 deterministic tests
 - [x] Admin lint and production build pass locally
 - [x] Mobile TypeScript typecheck passes after the app-local dependency install
 - [x] Root admin and mobile commands pass browser smoke checks with dummy data

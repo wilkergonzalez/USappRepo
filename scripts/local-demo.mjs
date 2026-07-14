@@ -1,6 +1,5 @@
-import { spawn } from 'node:child_process';
 import process from 'node:process';
-import { buildDemoCommands, parseDemoArgs } from './local-demo-utils.mjs';
+import { buildDemoCommands, parseDemoArgs, spawnManaged, terminateManaged } from './local-demo-utils.mjs';
 
 let options;
 try {
@@ -8,7 +7,7 @@ try {
 } catch (error) {
   console.error(`local demo: ${error.message}`);
   process.exitCode = 2;
-} 
+}
 
 if (options) {
   const commands = buildDemoCommands(options);
@@ -21,11 +20,7 @@ if (options) {
   console.log('Supabase variables absent: existing local demo fallback is active.');
 
   for (const [name, command] of Object.entries(commands)) {
-    const child = spawn(command.command, command.args, {
-      cwd: command.cwd,
-      env: process.env,
-      stdio: 'inherit',
-    });
+    const child = spawnManaged(command);
     children.set(name, child);
     child.once('error', (error) => {
       if (!shuttingDown) {
@@ -57,9 +52,7 @@ if (options) {
   function shutdown(signal) {
     if (shuttingDown) return;
     shuttingDown = true;
-    for (const child of children.values()) {
-      if (!child.killed) child.kill(signal);
-    }
+    for (const child of children.values()) terminateManaged(child, signal);
     Promise.all([...children.values()].map((child) => new Promise((resolve) => {
       if (child.exitCode !== null || child.signalCode !== null) resolve();
       else child.once('close', resolve);
