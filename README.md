@@ -31,16 +31,43 @@ Use these for server-side access and browser auth:
 
 If the Supabase env vars are absent, both apps fall back to demo data so the prototype still runs locally.
 
-## Run it
-Mobile (Expo web preview):
+## Local demo
+Install dependencies from the repository root using the established workspace install procedure:
 ```bash
+npm install
+```
+
+Supabase environment variables are optional for this local demo. With none configured, both surfaces use their existing local demo fallback data; this increment adds no API integrations or credentials.
+
+Start both surfaces together:
+```bash
+npm run demo
+```
+Then open `http://127.0.0.1:3000` for Admin and the Expo URL printed for Mobile web (normally `http://localhost:8081`).
+
+Start either surface individually:
+```bash
+npm run admin
 npm run mobile:web
 ```
 
-Admin dashboard:
+Override ports while preserving arguments for the underlying dev servers:
 ```bash
-npm run admin
+npm run admin -- --port 3001 --hostname 127.0.0.1
+npm run mobile:web -- --port 8083
+npm run demo -- --admin-port 3001 --mobile-port 8083
 ```
+
+Press Ctrl-C to stop the combined demo. If a port is occupied, use the commands above with alternate ports; the combined launcher rejects collisions before starting either child.
+
+### Browser smoke checklist
+With Supabase variables absent, verify that:
+- Admin loads at its printed URL and shows `Verification review and civic ops dashboard`, `Demo preview`, `Verification queue`, and a demo submission such as `Ada Citizen`.
+- Mobile web loads at the Expo URL and shows `US: The People`, `Demo fallback active`, `Utah profile completion`, `Verification document upload`, and `Bill feed and vote gating`.
+- Demo/read-only behavior is visible, demo bill cards are present, and vote controls remain locked before verification.
+- Existing demo controls can demonstrate pending → approve/reject and vote-gating states.
+
+This is a browser smoke checklist, not automated browser coverage. It does not prove live auth, storage, RLS, government verification, or API behavior.
 
 If you have Expo Go or a simulator available, you can also run the native mobile shell from `apps/mobile` with `npm run ios` or `npm run android`.
 

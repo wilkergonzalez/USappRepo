@@ -1,34 +1,43 @@
 # CHANGED.md
 
 This file is the human-readable change ledger for the project.
-Agents should update it whenever they make or verify a meaningful change.
 
-## Latest status
-- [x] Planner, security architect, QA architect, coder, and release reviewer completed the hardening review
-- [x] Feature work isolated on `feat/prototype-auth-ci-hardening`
-- [x] Mobile typecheck now runs through a real package script with TypeScript 5.9.3
-- [x] Admin lint is included and passes locally
-- [x] Deterministic hardening contract tests added and passing (7 tests)
-- [x] Mobile Supabase auth uses explicit persistent storage and auth-state refresh wiring
-- [x] Admin review RPC now uses the authenticated caller context instead of a service-role RPC session
-- [x] Supabase hardening migration added for profile, submission, storage, and function-execution boundaries
-- [x] Admin production build passes locally
-- [ ] Apply and exercise the new migration against the connected Supabase project
+## Current status
+- [x] Supabase auth, verification, storage, RLS, and admin-review hardening is merged to `main`
+- [x] Local demo launchers are implemented on `feat/local-demo-runnable`
+- [x] `npm test` passes 18 deterministic tests
+- [x] Combined demo preflights occupied ports before starting either child
+- [x] Admin lint and production build pass locally
+- [x] Mobile TypeScript typecheck passes after the app-local dependency install
+- [x] Root admin and mobile commands pass browser smoke checks with dummy data
+- [x] Combined `npm run demo` works with alternate ports and cleans up child processes
+- [x] Invalid/duplicate demo ports fail before child startup
+- [ ] Final review and merge of `feat/local-demo-runnable`
+- [ ] Apply and exercise Supabase migrations against the connected project
 - [ ] Run live RLS/storage/auth integration tests with separate user and admin accounts
-- [ ] Final reviewer approval and merge decision
+- [ ] Add government data/bill APIs after the user provides credentials and approves the next scope
+- [ ] Add third-party identity verification only in a separately approved phase
 
-## Files intentionally not tracked
-- `apps/mobile/.env.local`
-- `apps/admin/.env.local`
-- `.env.local` if created later
+## Local demo commands
+```bash
+npm install
+npm run demo
+```
 
-## What changed so far
-- Added a 4-agent planning workflow using the `4Agent.txt` guide.
-- Implemented the Supabase-ready prototype increment with mobile/admin data access layers and verification workflow.
-- Kept the mobile prototype and admin dashboard as separate surfaces.
+Default URLs:
+- Admin: http://127.0.0.1:3000
+- Mobile web: http://localhost:8081 (or the Expo URL printed by the launcher)
 
-## What still needs to happen
-- Wire the mobile app to Supabase auth and state.
-- Wire the admin queue to live verification data.
-- Add the GitHub workflow / branch process so changes are easy to review.
-- Commit and push only tracked files; secrets must stay in ignored env files.
+Use `npm run admin -- --port 3001 --hostname 127.0.0.1` and
+`npm run mobile:web -- --port 8083` when a default port is occupied.
+
+## Secrets and environment
+- `apps/mobile/.env.local` is intentionally ignored.
+- `apps/admin/.env.local` is intentionally ignored.
+- Supabase variables are optional for local demo mode.
+- No credentials, government APIs, or third-party verification integrations were added in this increment.
+
+## Workflow
+- Continue using planner → coder → tester → read-only reviewer.
+- Keep changes on feature branches and merge only after reviewer approval.
+- Keep this ledger aligned with verified repository state.
