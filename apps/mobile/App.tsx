@@ -1,6 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Alert,
   Pressable,
@@ -56,7 +57,8 @@ const TABS: ReadonlyArray<{ key: TabKey; label: string }> = [
   { key: 'account', label: 'Account' },
 ];
 
-export default function App() {
+function AppContent() {
+  const insets = useSafeAreaInsets();
   const [workspace, setWorkspace] = useState<WorkspaceSnapshot>(EMPTY_WORKSPACE);
   const [busy, setBusy] = useState<string | null>(null);
   const [email, setEmail] = useState('ada@example.com');
@@ -266,7 +268,7 @@ export default function App() {
           : 'Unverified: browse only';
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { paddingTop: insets.top }]}>
       <StatusBar style="light" />
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.hero}>
@@ -451,7 +453,7 @@ export default function App() {
           </>
         ) : null}
       </ScrollView>
-      <View style={styles.tabBar} accessibilityRole="tablist">
+      <View style={[styles.tabBar, { paddingBottom: 12 + insets.bottom }]} accessibilityRole="tablist">
         {TABS.map((tab) => {
           const selected = activeTab === tab.key;
           return (
@@ -469,6 +471,14 @@ export default function App() {
         })}
       </View>
     </View>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppContent />
+    </SafeAreaProvider>
   );
 }
 
