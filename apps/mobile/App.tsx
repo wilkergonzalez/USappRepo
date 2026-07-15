@@ -47,6 +47,15 @@ const EMPTY_WORKSPACE: WorkspaceSnapshot = {
   message: 'Loading workspace…',
 };
 
+type TabKey = 'bills' | 'profile' | 'verify' | 'account';
+
+const TABS: ReadonlyArray<{ key: TabKey; label: string }> = [
+  { key: 'bills', label: 'Bills' },
+  { key: 'profile', label: 'Profile' },
+  { key: 'verify', label: 'Verify' },
+  { key: 'account', label: 'Account' },
+];
+
 export default function App() {
   const [workspace, setWorkspace] = useState<WorkspaceSnapshot>(EMPTY_WORKSPACE);
   const [busy, setBusy] = useState<string | null>(null);
@@ -59,6 +68,7 @@ export default function App() {
   const [selectedDocumentType, setSelectedDocumentType] = useState(DOCUMENT_OPTIONS[0]);
   const [pickedDocument, setPickedDocument] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [activeBillId, setActiveBillId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>('bills');
 
   useEffect(() => {
     void refreshWorkspace();
@@ -273,7 +283,8 @@ export default function App() {
           </View>
         </View>
 
-        <Section title="1. Sign up or sign in">
+        {activeTab === 'account' ? (
+          <Section title="1. Sign up or sign in">
           <Text style={styles.helperText}>{workspace.message}</Text>
           <Field label="Email" value={email} onChangeText={setEmail} placeholder="you@example.com" />
           <Field label="Password" value={password} onChangeText={setPassword} placeholder="Choose a password" secureTextEntry />
@@ -289,9 +300,11 @@ export default function App() {
             Password recovery uses email. In demo mode, these actions stay local so the prototype still runs without env vars.
           </Text>
           {workspace.session ? <MiniStat label="Signed in as" value={workspace.session.email} /> : null}
-        </Section>
+          </Section>
+        ) : null}
 
-        <Section title="2. Utah profile completion">
+        {activeTab === 'profile' ? (
+          <Section title="2. Utah profile completion">
           <Text style={styles.helperText}>
             Browsing is allowed before verification. Voting stays locked until approval, and rejected users can resubmit.
           </Text>
@@ -321,9 +334,11 @@ export default function App() {
             label={busy === 'Saving profile' ? 'Saving…' : 'Save profile'}
             onPress={handleSaveProfile}
           />
-        </Section>
+          </Section>
+        ) : null}
 
-        <Section title="3. Verification document upload">
+        {activeTab === 'verify' ? (
+          <Section title="3. Verification document upload">
           <Text style={styles.helperText}>
             Upload one private file from your device or browser. The file stays in a private Supabase bucket and only metadata is stored in the app record.
           </Text>
@@ -371,9 +386,12 @@ export default function App() {
           ) : (
             <Text style={styles.helperText}>No verification submission yet.</Text>
           )}
-        </Section>
+          </Section>
+        ) : null}
 
-        <Section title="4. Bill feed and vote gating">
+        {activeTab === 'bills' ? (
+          <>
+            <Section title="4. Bill feed and vote gating">
           <Text style={styles.helperText}>
             Bills are fetched from Supabase when configured. In demo mode, the feed comes from seeded local data.
           </Text>
@@ -429,8 +447,27 @@ export default function App() {
           ) : (
             <Text style={styles.helperText}>Pick a bill to inspect details.</Text>
           )}
-        </Section>
+            </Section>
+          </>
+        ) : null}
       </ScrollView>
+      <View style={styles.tabBar} accessibilityRole="tablist">
+        {TABS.map((tab) => {
+          const selected = activeTab === tab.key;
+          return (
+            <Pressable
+              key={tab.key}
+              onPress={() => setActiveTab(tab.key)}
+              accessibilityRole="tab"
+              accessibilityLabel={`${tab.label} tab${selected ? ', selected' : ''}`}
+              accessibilityState={{ selected }}
+              style={[styles.tab, selected && styles.tabActive]}
+            >
+              <Text style={[styles.tabLabel, selected && styles.tabLabelActive]}>{tab.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -492,8 +529,37 @@ const styles = StyleSheet.create({
   },
   scroll: {
     padding: 20,
-    paddingBottom: 60,
+    paddingBottom: 120,
     gap: 16,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#0d1625',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  tab: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  tabActive: {
+    backgroundColor: '#14253d',
+  },
+  tabLabel: {
+    color: '#97a5bb',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  tabLabelActive: {
+    color: '#79b8ff',
   },
   hero: {
     backgroundColor: '#0f1b2d',
